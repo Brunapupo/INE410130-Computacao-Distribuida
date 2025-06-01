@@ -1,0 +1,16 @@
+May 31, 2025 10:57:29 PM org.jgroups.JChannel setAddress
+INFO: local_addr: 7dc28b83-48e9-ee37-a19a-64925ec99cfc, name: DESKTOP-Q9GKAD8-36963
+May 31, 2025 10:57:29 PM org.jgroups.protocols.UDP setBufferSize
+WARNING: JGRP000015: the receive buffer of socket MulticastSocket was set to 5MB, but the OS only allocated 212.99KB
+May 31, 2025 10:57:29 PM org.jgroups.protocols.UDP setBufferSize
+WARNING: JGRP000015: the receive buffer of socket MulticastSocket was set to 5MB, but the OS only allocated 212.99KB
+
+-------------------------------------------------------------------
+GMS: address=DESKTOP-Q9GKAD8-36963, cluster=ChatCluster, physical address=172.25.21.64:40564
+-------------------------------------------------------------------
+** view: [DESKTOP-Q9GKAD8-16677|4] (3) [DESKTOP-Q9GKAD8-16677, DESKTOP-Q9GKAD8-1791, DESKTOP-Q9GKAD8-36963]
+3 past messages:
+DESKTOP-Q9GKAD8-47157: [pupo] OHello, everyone
+DESKTOP-Q9GKAD8-1791: [pupo] Hello, pupo
+DESKTOP-Q9GKAD8-16677: [pupo] Morning
+> > DESKTOP-Q9GKAD8-36963: [pupo] 

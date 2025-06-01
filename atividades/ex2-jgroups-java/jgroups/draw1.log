@@ -1,0 +1,16 @@
+May 31, 2025 9:25:58 PM org.jgroups.JChannel setAddress
+INFO: local_addr: 56939e8e-a41c-d34e-dc9c-b88571e4f93d, name: DESKTOP-Q9GKAD8-59376
+May 31, 2025 9:25:58 PM org.jgroups.protocols.UDP setBufferSize
+WARNING: JGRP000015: the receive buffer of socket MulticastSocket was set to 5MB, but the OS only allocated 212.99KB
+May 31, 2025 9:25:58 PM org.jgroups.protocols.UDP setBufferSize
+WARNING: JGRP000015: the receive buffer of socket MulticastSocket was set to 5MB, but the OS only allocated 212.99KB
+
+-------------------------------------------------------------------
+GMS: address=DESKTOP-Q9GKAD8-59376, cluster=draw, physical address=172.25.21.64:50516
+-------------------------------------------------------------------
+** View=[DESKTOP-Q9GKAD8-62290|5] (4) [DESKTOP-Q9GKAD8-62290, DESKTOP-Q9GKAD8-59104, DESKTOP-Q9GKAD8-18927, DESKTOP-Q9GKAD8-59376]
+** View=[DESKTOP-Q9GKAD8-62290|6] (3) [DESKTOP-Q9GKAD8-62290, DESKTOP-Q9GKAD8-59104, DESKTOP-Q9GKAD8-59376]
+** View=[DESKTOP-Q9GKAD8-62290|7] (4) [DESKTOP-Q9GKAD8-62290, DESKTOP-Q9GKAD8-59104, DESKTOP-Q9GKAD8-59376, DESKTOP-Q9GKAD8-50498]
+** View=[DESKTOP-Q9GKAD8-62290|8] (3) [DESKTOP-Q9GKAD8-62290, DESKTOP-Q9GKAD8-59104, DESKTOP-Q9GKAD8-59376]
+** View=[DESKTOP-Q9GKAD8-62290|9] (2) [DESKTOP-Q9GKAD8-62290, DESKTOP-Q9GKAD8-59376]
+** View=[DESKTOP-Q9GKAD8-59376|10] (1) [DESKTOP-Q9GKAD8-59376]

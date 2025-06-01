@@ -1,0 +1,12 @@
+Manifest-Version: 1.0
+Created-By: Maven Jar Plugin 3.2.0
+Build-Jdk-Spec: 11
+Build-Tool: Apache Maven 3.6.3 (cecedd343002696d0abb50b32b541b8a6ba2883f
+ )
+Build-Jdk: 11.0.1 (Oracle Corporation)
+Build-Os: Mac OS X (10.15.5; x86_64)
+Implementation-Title: JGroups
+Implementation-Version: 5.0.0.Final
+Implementation-Vendor: JBoss, a division of Red Hat
+Main-Class: org.jgroups.Version
+
