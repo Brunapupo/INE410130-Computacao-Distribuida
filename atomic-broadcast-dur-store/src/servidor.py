@@ -1,73 +1,79 @@
 import asyncio, json, sys
 from broadcast import AtomicBroadcaster
 
-class ReplicaServer:
-    def __init__(self, proc_id: int, peers: list[tuple[str, int]]):
-        self.id = proc_id
-        self.store: dict[str, tuple[int, str]] = {}   # item → (versão, valor)
-        self.last_committed = 0
-        self.bcast = AtomicBroadcaster(proc_id, peers)
+class ServidorReplica:
+    def __init__(self, id_replicas: int, replicas: list[tuple[str, int]]):
+        self.id = id_replicas  # ID desta réplica
+        self.armazenamento: dict[str, tuple[int, str]] = {}  #dicionario chave
+        self.ultimo_commit = 0  #contador de commits
+        self.difusor = AtomicBroadcaster(id_replicas, replicas)  #modulo de difusao atomica
 
-    async def start(self):
-        await self.bcast.start()
-        asyncio.create_task(self._deliver_loop())
-        await self._client_listener()
+    #inicia o servidor e o listener  do clientes
+    async def iniciar(self):
+        await self.difusor.start()
+        asyncio.create_task(self._loop_entrega())
+        await self._escutar_clientes()
 
-    # ---------- entrega de commit_req vindos do broadcast ----------
-    async def _deliver_loop(self):
+    #Procolo DUR propaga os commits em ordem global
+    async def _loop_entrega(self):
         while True:
-            msg = await self.bcast.deliver()
+            msg = await self.difusor.deliver()
             if "commit_req" in msg["body"]:
-                await self._apply_commit(msg["body"]["commit_req"])
+                await self._aplicar_commit(msg["body"]["commit_req"])
 
-    async def _apply_commit(self, tx):
-        rs, ws = tx["rs"], tx["ws"]
-        # certification test (Alg.4 linhas 8-12)
-        for item, ver in rs.items():
-            if self.store.get(item, (0,))[0] > ver:
-                await self._reply(tx["client"], {"status": "abort"})
+    async def _aplicar_commit(self, transacao):
+        rs, ws = transacao["rs"], transacao["ws"]
+
+        #Essa é a certificação otimista que garante consistência em réplicas com Total Order Broadcast 
+        # — exatamente como nos algoritmos descritos nos artigos [Pedone & Schiper 2012] e [Mendizabal et al. 2013].
+        #certificacao, caso a versao local esta mais atual que a que o cliente leu, aborta.
+        for item, versao in rs.items():
+            if self.armazenamento.get(item, (0,))[0] > versao:
+                await self._responder(transacao["client"], {"status": "abort"})
                 return
-        # se passou, aplica writes
-        self.last_committed += 1
-        for item, val in ws.items():
-            cur_ver, _ = self.store.get(item, (0, None))
-            self.store[item] = (cur_ver + 1, val)
-        await self._reply(tx["client"], {"status": "commit"})
+        # se passou na certificação, aplica a escrita e atualiza. [UPADATE REPLICATION]
+        self.ultimo_commit += 1
+        for item, valor in ws.items():
+            versao_atual, _ = self.armazenamento.get(item, (0, None))
+            self.armazenamento[item] = (versao_atual + 1, valor)
 
-    # ---------- interface para clientes ----------
-    async def _client_listener(self):
-        serv = await asyncio.start_server(self._handle_client, "127.0.0.1", 0)
-        self.cli_addr = serv.sockets[0].getsockname()
-        print(f"Replica {self.id} escutando clientes em porta {self.cli_addr[1]}")
-        async with serv: await serv.serve_forever()
+        await self._responder(transacao["client"], {"status": "commit"})
+    
+    #funcoes para escutar resposta do cliente
+    async def _escutar_clientes(self):
+        servidor = await asyncio.start_server(self._tratar_cliente, "127.0.0.1", 0)
+        self.endereco_cliente = servidor.sockets[0].getsockname()
+        print(f"Réplica {self.id} escutando clientes na porta {self.endereco_cliente[1]}")
+        async with servidor:
+            await servidor.serve_forever()
 
-    async def _handle_client(self, r, w):
-        req = json.loads((await r.read(65536)).decode())
+    async def _tratar_cliente(self, leitor, escritor):
+        req = json.loads((await leitor.read(65536)).decode())
         if "read" in req:
             item = req["read"]
-            ver, val = self.store.get(item, (0, None))
-            w.write(json.dumps({"version": ver, "value": val}).encode())
-            await w.drain(); w.close()
+            versao, valor = self.armazenamento.get(item, (0, None))
+            escritor.write(json.dumps({"version": versao, "value": valor}).encode())
+            await escritor.drain(); escritor.close()
         elif "commit_fwd" in req:
-            await self.bcast.broadcast({"commit_req": req["commit_fwd"]})
-            w.close()
+            await self.difusor.broadcast({"commit_req": req["commit_fwd"]})
+            escritor.close()
 
-    # ---------- envia decisão ao cliente ----------
-    async def _reply(self, addr, payload):
+    async def _responder(self, endereco, resposta):
         try:
-            reader, writer = await asyncio.open_connection(*addr)
-            writer.write(json.dumps(payload).encode())
-            await writer.drain()
-            writer.close()
+            leitor, escritor = await asyncio.open_connection(*endereco)
+            escritor.write(json.dumps(resposta).encode())
+            await escritor.drain()
+            escritor.close()
         except (ConnectionRefusedError, ConnectionResetError):
-            # Cliente já fechou o callback: outra réplica entregou a decisão.
             pass
 
-# ---------- entrada via CLI ----------
 if __name__ == "__main__":
     if len(sys.argv) != 3:
-        print("Uso: python src/servidor.py <id_replica> <num_replicas>")
+        print("Uso: python src/servidor.py <id_replicas> <num_replicas>")
         sys.exit(1)
-    proc_id = int(sys.argv[1]); n = int(sys.argv[2])
-    peers = [("127.0.0.1", 9000 + i) for i in range(n)]
-    asyncio.run(ReplicaServer(proc_id, peers).start())
+
+    id_replicas = int(sys.argv[1])
+    num_replicas = int(sys.argv[2])
+    replicas = [("127.0.0.1", 9000 + i) for i in range(num_replicas)]#multiplas replicas
+
+    asyncio.run(ServidorReplica(id_replicas, replicas).iniciar())

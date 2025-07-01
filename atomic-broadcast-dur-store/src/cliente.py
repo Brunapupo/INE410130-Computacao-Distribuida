@@ -1,68 +1,69 @@
 import asyncio, json, random, sys
 
-class TransactionClient:
-    def __init__(self, server_addr):
-        self.server = server_addr          # endereço (host, porta) da réplica
-        self.rs, self.ws = {}, {}          # read-set e write-set
-        self.result = None
+class ClienteTransacao:
+    def __init__(self, endereco_servidor):
+        self.servidor = endereco_servidor              
+        self.conjunto_leitura = {}                
+        self.conjunto_escrita = {}                      
+        self.resultado = None #status final do commit
 
-    async def read(self, item):
-        if item in self.ws:                # valor já escrito localmente
-            return self.ws[item]
-        reader, writer = await asyncio.open_connection(*self.server)
-        writer.write(json.dumps({"read": item}).encode())
-        await writer.drain()
-        ans = json.loads((await reader.read(65536)).decode())
-        writer.close()
-        self.rs[item] = ans["version"]
-        return ans["value"]
+    async def ler(self, item):
+        if item in self.conjunto_escrita:
+            return self.conjunto_escrita[item]
+        
+        leitor, escritor = await asyncio.open_connection(*self.servidor)
+        escritor.write(json.dumps({"read": item}).encode())
+        await escritor.drain()
 
-    def write(self, item, value):
-        self.ws[item] = value
+        resposta = json.loads((await leitor.read(65536)).decode())
+        escritor.close()
+
+        self.conjunto_leitura[item] = resposta["version"]
+        return resposta["value"]
+
+    def escrever(self, item, valor):
+        self.conjunto_escrita[item] = valor
 
     async def commit(self):
-        # -------- prepara servidor callback p/ receber decisão --------
-        callback_port = random.randint(20000, 60000)
+        porta_callback = random.randint(20000, 60000)
         loop = asyncio.get_running_loop()
-        result_future = loop.create_future()            # Future para a decisão
+        futuro_resultado = loop.create_future()
 
-        async def _callback(reader, writer):
-            data = await reader.read(65536)
-            res = json.loads(data.decode())
-            if not result_future.done():                # evita InvalidStateError
-                result_future.set_result(res["status"])
-            writer.close()
+        async def _callback(leitor, escritor):
+            dados = await leitor.read(65536)
+            resposta = json.loads(dados.decode())
+            print("[callback recebido]", resposta)
+            if not futuro_resultado.done():
+                futuro_resultado.set_result(resposta["status"])
+            escritor.close()
 
-        cb_server = await asyncio.start_server(
-            _callback, "127.0.0.1", callback_port
-        )
+        servidor_callback = await asyncio.start_server(_callback, "127.0.0.1", porta_callback)
 
-        # -------- envia commit_fwd para a réplica --------
-        tx = {
-            "rs": self.rs,
-            "ws": self.ws,
-            "client": ("127.0.0.1", callback_port)
+        transacao = {
+            "rs": self.conjunto_leitura,
+            "ws": self.conjunto_escrita,
+            "client": ("127.0.0.1", porta_callback)
         }
-        r, w = await asyncio.open_connection(*self.server)
-        w.write(json.dumps({"commit_fwd": tx}).encode())
-        await w.drain()
-        w.close()
 
-        # -------- espera a réplica conectar e responder --------
-        status = await result_future
+        leitor, escritor = await asyncio.open_connection(*self.servidor)
+        escritor.write(json.dumps({"commit_fwd": transacao}).encode())
+        await escritor.drain()
+        escritor.close()
 
-        cb_server.close()
-        await cb_server.wait_closed()
+        status = await futuro_resultado
 
-        self.result = status
+        servidor_callback.close()
+        await servidor_callback.wait_closed()
+
+        self.resultado = status
         return status
 
-# ---------------- demo rápido ----------------
+
 async def main(porta):
-    cli = TransactionClient(("127.0.0.1", porta))
-    await cli.read("x")
-    cli.write("x", "42")
-    print("Commit:", await cli.commit())
+    cliente = ClienteTransacao(("127.0.0.1", porta))
+    await cliente.ler("x")
+    cliente.escrever("x", "42")
+    print("Commit:", await cliente.commit())
 
 if __name__ == "__main__":
     asyncio.run(main(int(sys.argv[1])))
