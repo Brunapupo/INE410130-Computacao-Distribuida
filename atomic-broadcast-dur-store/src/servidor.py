@@ -24,9 +24,7 @@ class ServidorReplica:
     async def _aplicar_commit(self, transacao):
         rs, ws = transacao["rs"], transacao["ws"]
 
-        #Essa é a certificação otimista que garante consistência em réplicas com Total Order Broadcast 
-        # — exatamente como nos algoritmos descritos nos artigos [Pedone & Schiper 2012] e [Mendizabal et al. 2013].
-        #certificacao, caso a versao local esta mais atual que a que o cliente leu, aborta.
+    
         for item, versao in rs.items():
             if self.armazenamento.get(item, (0,))[0] > versao:
                 await self._responder(transacao["client"], {"status": "abort"})
