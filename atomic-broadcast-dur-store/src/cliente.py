@@ -3,6 +3,20 @@ import random
 import socket
 import sys
 
+class Transaction:
+    def __init__(self, ops):
+        self.ops = ops
+        self.id  = random.randint(1, 10**6)
+
+    def getOp(self, i):
+        return self.ops[i][0]
+
+    def getItem(self, i):
+        return self.ops[i][1] if len(self.ops[i]) > 1 else None
+
+    def getValue(self, i):
+        return self.ops[i][2] if len(self.ops[i]) > 2 else None
+
 class TransactionClient:
     def __init__(self, cid, t, abcast):
         self.cid = cid
@@ -22,7 +36,6 @@ class TransactionClient:
                 if self.t.getOp(self.i) == "read":
                     if any(x for x in self.ws if x[0] == self.t.getItem(self.i)):
                         v = next(v for (k, v) in self.ws if k == self.t.getItem(self.i))
-                        return v
                     else:
                         s.send(("read", self.t.getItem(self.i), self.cid))
                         v, version = s.receive(self.cid)
@@ -36,3 +49,17 @@ class TransactionClient:
                 return res
             else:
                 return "abort"
+
+t1_ops = [
+    ("read",  "x"),          
+    ("write", "y", 10),      
+    ("commit",)
+]
+
+t2_ops = [
+    ("read", "y"),           
+    ("read", "x"),           
+    ("read", "z"),           
+    ("commit",)
+]
+
