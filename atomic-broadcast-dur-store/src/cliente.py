@@ -37,29 +37,57 @@ class TransactionClient:
                     if any(x for x in self.ws if x[0] == self.t.getItem(self.i)):
                         v = next(v for (k, v) in self.ws if k == self.t.getItem(self.i))
                     else:
-                        s.send(("read", self.t.getItem(self.i), self.cid))
-                        v, version = s.receive(self.cid)
-                        self.rs.add((self.t.getItem(self.i), v, version)) #abort
+                        s.send(json.dumps(["read", self.cid, self.t.getItem(self.i)]).encode()) #formate json
+                        val, version = json.loads(s.receive().decode())
+                        self.rs.add((self.t.getItem(self.i), v, version)) 
 
                 self.i += 1
-
+            
+            #Commit or abort
             if self.t.getOp(self.i) == "commit":
-                self.abcast.send(("com_req", self.cid, self.t.id, self.rs, self.ws))
+                self.abcast.send(json.dumps(["com_req", self.cid, self.t.id, list(self.rs), list(self.ws)]).encode())
                 res = self.abcast.receive(self.cid)
                 return res
             else:
                 return "abort"
 
-t1_ops = [
-    ("read",  "x"),          
-    ("write", "y", 10),      
-    ("commit",)
-]
+if __name__ == "__main__":
+    replicas = [("127.0.0.1", 9000), ("127.0.0.1", 9001)]
 
-t2_ops = [
-    ("read", "y"),           
-    ("read", "x"),           
-    ("read", "z"),           
-    ("commit",)
-]
+    # Cliente 1 (Transação T1)
+    t1_ops = [
+        ("read",  "x"),
+        ("write", "y", 10),
+        ("commit",)
+    ]
+    abcast1 = AtomicBroadcaster("C1", replicas, "127.0.0.1", 8000)
+    tx1 = Transaction(t1_ops)
+    client1 = TransactionClient("C1", tx1, abcast1)
+
+    # Supondo socket direto (ponto-a-ponto) já criado para servidor escolhido
+    s1 = socket.socket()
+    s1.connect(("127.0.0.1", 9000))  # servidor aleatório escolhido para T1
+
+    result1 = client1.execute(s1)
+    print("Resultado T1:", result1)
+    s1.close()
+
+    # Cliente 2 (Transação T2)
+    t2_ops = [
+        ("read", "y"),
+        ("read", "x"),
+        ("read", "z"),
+        ("commit",)
+    ]
+    abcast2 = AtomicBroadcaster("C2", replicas, "127.0.0.1", 8001)
+    tx2 = Transaction(t2_ops)
+    client2 = TransactionClient("C2", tx2, abcast2)
+
+    s2 = socket.socket()
+    s2.connect(("127.0.0.1", 9001))  # servidor aleatório escolhido para T2
+
+    result2 = client2.execute(s2)
+    print("Resultado T2:", result2)
+    s2.close()
+
 
