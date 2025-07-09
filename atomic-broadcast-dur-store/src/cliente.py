@@ -18,8 +18,8 @@ class Transaction:
         return self.ops[i][2] if len(self.ops[i]) > 2 else None
 
 class TransactionClient:
-    def __init__(self, cid, t, abcast):
-        self.cid = cid
+    def __init__(self, client_id, t, abcast):
+        self.client_id = client_id
         self.t = t
         self.ws = set()
         self.rs = set()
@@ -29,7 +29,6 @@ class TransactionClient:
     #Escolha aleatoria em um dos servidores.
     def execute(self, s):
             while self.t.getOp(self.i) != "commit" and self.t.getOp(self.i) != "abort":
-
                 if self.t.getOp(self.i) == "write":
                     self.ws.add((self.t.getItem(self.i), self.t.getValue(self.i)))
 
@@ -37,16 +36,16 @@ class TransactionClient:
                     if any(x for x in self.ws if x[0] == self.t.getItem(self.i)):
                         v = next(v for (k, v) in self.ws if k == self.t.getItem(self.i))
                     else:
-                        s.send(json.dumps(["read", self.cid, self.t.getItem(self.i)]).encode()) #formate json
-                        val, version = json.loads(s.receive().decode())
+                        s.send(json.dumps(["read", self.client_id, self.t.getItem(self.i)]).encode()) #formate json
+                        val, version = json.loads(s.recv(65536).decode())
                         self.rs.add((self.t.getItem(self.i), v, version)) 
 
                 self.i += 1
             
             #Commit or abort
             if self.t.getOp(self.i) == "commit":
-                self.abcast.send(json.dumps(["com_req", self.cid, self.t.id, list(self.rs), list(self.ws)]).encode())
-                res = self.abcast.receive(self.cid)
+                self.abcast.send(json.dumps(["com_req", self.client_id, self.t.id, list(self.rs), list(self.ws)]).encode())
+                response = json.loads(self.abcast.receive().decode())
                 return res
             else:
                 return "abort"

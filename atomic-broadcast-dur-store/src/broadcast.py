@@ -9,6 +9,7 @@ class AtomicBroadcaster:
         self.contador = 0             
         self.fila_entrega = asyncio.Queue() 
         self._server = None 
+        self.handler = None  
 
     async def start(self):
         self._server = await asyncio.start_server(self._handler, *self.replicas[self.id])
@@ -28,11 +29,14 @@ class AtomicBroadcaster:
         dados = await reader.read(BUF)
         msg = json.loads(dados.decode())
 
-    
+        # Caso seja o sequenciador e esteja recebendo uma requisição bruta
         if self.id == self.seq and "body" in msg and "seq" not in msg:
             await self.broadcast(msg["body"])
-        else:
-            await self.fila_entrega.put(msg)
+        elif "body" in msg:
+            if self.handler:
+                await self.handler(json.dumps(msg["body"]).encode())  # chama broadcast_handler
+            else:
+                await self.fila_entrega.put(msg)
 
         writer.close()
 
