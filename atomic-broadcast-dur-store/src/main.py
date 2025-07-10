@@ -1,21 +1,17 @@
 # maintest.py
-import threading # Módulo para trabalhar com threads (execução paralela)
-import time      # Módulo para funções relacionadas a tempo (ex: sleep)
-import sys       # Módulo para interagir com o interpretador Python (ex: sys.path)
-import os        # Módulo para interagir com o sistema operacional (ex: caminhos de arquivo)
+import threading 
+import time     
+import sys       
+import os        
 
-
-# Importa as classes Client, Server e Sequencer dos seus respectivos arquivos
 from client import Client
 from server import Server
 from sequencer import Sequencer
 
-# --- Configurações de Rede ---
-SERVER_HOST = '127.0.0.1' # Endereço IP local para os servidores
-SERVER_PORTS = [8001, 8002, 8003] # Portas que os servidores replicados irão usar
-SEQUENCER_HOST = '127.0.0.1' # Endereço IP local para o sequenciador
-SEQUENCER_PORT = 9000 # Porta que o sequenciador irá usar
-
+SERVER_HOST = '127.0.0.1' 
+SERVER_PORTS = [8001, 8002, 8003] 
+SEQUENCER_HOST = '127.0.0.1' 
+SEQUENCER_PORT = 9000 
 # Lista de tuplas (host, porta) para todos os servidores
 SERVER_ADDRESSES = [(SERVER_HOST, p) for p in SERVER_PORTS]
 # Tupla (host, porta) do sequenciador
@@ -29,7 +25,6 @@ global_server_threads = []
 def setup_global_environment():
     """
     Configura o ambiente global (inicia o sequenciador e os servidores) uma única vez.
-    Isso evita o erro 'Address already in use' ao rodar múltiplos testes.
     """
     global global_sequencer_thread, global_server_threads
     print("--- Configurando ambiente global (Sequenciador e Servidores) ---")
@@ -38,24 +33,18 @@ def setup_global_environment():
     global_sequencer_thread = threading.Thread(target=Sequencer(SEQUENCER_HOST, SEQUENCER_PORT, SERVER_ADDRESSES).start)
     global_sequencer_thread.daemon = True # Define a thread como daemon para que termine com o programa principal
     global_sequencer_thread.start()
-    time.sleep(0.1) # Pequeno atraso para dar tempo ao sequenciador de iniciar
+    time.sleep(0.1) 
 
     # Inicia cada Servidor Replicado em sua própria thread separada
     for i, port in enumerate(SERVER_PORTS):
-        thread = threading.Thread(target=Server(i + 1, SERVER_HOST, port).start)
+        #cria um obj e uma instancia da classe server
+        thread = threading.Thread(target=Server(i + 1, SERVER_HOST, port).start) 
         thread.daemon = True # Define a thread como daemon
         global_server_threads.append(thread) # Adiciona a thread à lista global
         thread.start()
-    time.sleep(0.2) # Pequeno atraso para dar tempo aos servidores de iniciarem e popularem seus bancos de dados
+    time.sleep(0.2) 
     print("Ambiente global configurado e pronto para testes.\n")
 
-
-def tx(*operations):
-    """
-    Função auxiliar para criar uma lista de operações de transação.
-    Torna a definição dos cenários de teste mais concisa e legível.
-    """
-    return list(operations)
 
 def client_transaction_runner(client_instance, operations):
     """
@@ -104,9 +93,7 @@ def client_transaction_runner(client_instance, operations):
     print(f"--- Cliente {client_instance.client_id}: Transação {client_instance.transaction_id} Finalizada com resultado: {final_result}. Fim: {timestamp_fim:.4f} ---")
     return final_result # Retorna o resultado final da transação
 
-
-# ---------- Definição dos Testes ----------
-
+# Definição dos Testes
 def teste_concorrencia_2():
     """
     Cenário de concorrência com 2 clientes.
@@ -115,20 +102,20 @@ def teste_concorrencia_2():
     seq_addr = SEQUENCER_ADDRESS
     sv_addrs = SERVER_ADDRESSES
 
-    # Define as operações para a Transação 1 (T1)
-    t1_ops = tx(
+
+    t1_ops = [
         ("read", "x"),
         ("write", "y", "valor_y_t1"),
         ("commit",) # T1 tenta commitar suas operações
-    )
-    # Define as operações para a Transação 2 (T2)
-    t2_ops = tx(
+    ]
+
+    t2_ops = [
         ("read", "y"),
         ("read", "x"),
         ("sleep", 0.2), # T2 espera um pouco, permitindo que T1 possa avançar
         ("write", "z", "valor_z_t2"),
         ("commit",) # T2 tenta commitar
-    )
+    ]
 
     # Cria instâncias dos objetos Client
     client1_instance = Client("T1", sv_addrs, seq_addr)
@@ -155,9 +142,22 @@ def teste_concorrencia_3():
     seq_addr = SEQUENCER_ADDRESS
     sv_addrs = SERVER_ADDRESSES
 
-    t1_ops = tx(("write", "a", 1), ("commit",))
-    t2_ops = tx(("read", "a"), ("write", "b", 2), ("commit",))
-    t3_ops = tx(("read", "b"), ("write", "c", 3), ("commit",))
+    t1_ops = [
+        ("write", "a", 1), 
+        ("commit",)
+    ]
+
+    t2_ops = [
+        ("read", "a"), 
+        ("write", "b", 2), 
+        ("commit",)
+    ]
+
+    t3_ops = [
+        ("read", "b"), 
+        ("write", "c", 3), 
+        ("commit",)
+    ]
 
     client1_instance = Client("T1", sv_addrs, seq_addr)
     client2_instance = Client("T2", sv_addrs, seq_addr)
@@ -185,8 +185,15 @@ def teste_independentes():
     seq_addr = SEQUENCER_ADDRESS
     sv_addrs = SERVER_ADDRESSES
 
-    t1_ops = tx(("write", "p", 100), ("commit",))
-    t2_ops = tx(("write", "q", 200), ("commit",))
+    t1_ops = [
+        ("write", "p", 100), 
+        ("commit",)
+    ]
+
+    t2_ops = [
+        ("write", "q", 200), 
+        ("commit",)
+    ]
 
     client1_instance = Client("T1", sv_addrs, seq_addr)
     client2_instance = Client("T2", sv_addrs, seq_addr)
@@ -211,12 +218,16 @@ def teste_leitura_obsoleta():
     sv_addrs = SERVER_ADDRESSES
 
     # T1 altera x; T2 lê versão antiga e tenta confirmar depois, resultando em aborto
-    t1_ops = tx(("write", "x", 99), ("commit",))
-    t2_ops = tx(
+    t1_ops = [
+        ("write", "x", 99), 
+        ("commit",)
+    ]
+
+    t2_ops = [
         ("read", "x"),       # T2 lê 'x' (versão inicial)
         ("sleep", 0.3),      # Dá tempo para T1 commitar e alterar 'x'
         ("commit",)          # T2 tenta commitar, mas 'x' estará obsoleto
-    )
+    ]
 
     client1_instance = Client("T1", sv_addrs, seq_addr)
     client2_instance = Client("T2", sv_addrs, seq_addr)
@@ -231,17 +242,23 @@ def teste_leitura_obsoleta():
     client2_thread.join()
     print(f"\n======== FIM DO TESTE: teste_leitura_obsoleta ========\n")
 
-# ---------- Entrada Principal ----------
+
+#são projetados para demonstrar o comportamento do protocolo DUR (Deferred Update Replication) em diferentes cenários de concorrência. 
 if __name__ == "__main__":
-    # 1. Configura o ambiente global uma única vez
     setup_global_environment()
-    time.sleep(1) # Pequeno atraso para garantir que tudo esteja pronto
+    time.sleep(5) 
 
-    # 2. Executa cada caso de teste sequencialmente
     teste_concorrencia_2()
-    time.sleep(2) # Pequeno atraso entre os testes para clareza na saída
+    time.sleep(5) 
 
-    
+    teste_concorrencia_3()
+    time.sleep(5)
+
+    teste_independentes()
+    time.sleep(5)
+
+    teste_leitura_obsoleta()
+    time.sleep(5)
 
     print("--- Todos os testes concluídos ---")
     print("O programa principal está terminando. As threads de servidor e sequenciador (daemon) serão encerradas.")

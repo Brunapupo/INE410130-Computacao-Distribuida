@@ -3,8 +3,6 @@ import socket
 import threading
 import json
 
-# import time # Removido, pois não é utilizado diretamente neste arquivo
-
 class Server:
     """
     Representa um servidor replicado no sistema distribuído.
@@ -75,7 +73,7 @@ class Server:
         if tipo_mensagem == 'read_request':
             item = mensagem.get('item')
             client_id = mensagem.get('cid')
-            self.handle_read_request(conn, item, client_id)
+            self.handle_read_request(conn, item)
         elif tipo_mensagem == 'commit_request':
             cid = mensagem.get('cid')
             t_id = mensagem.get('t_id')
@@ -87,7 +85,7 @@ class Server:
         
         conn.close() # Fecha a conexão após processar a requisição
 
-    def handle_read_request(self, conn, item, client_id):
+    def handle_read_request(self, conn, item):
         """
         Processa uma requisição de leitura de um cliente.
         Corresponde às linhas 4-5 do Algoritmo 4.

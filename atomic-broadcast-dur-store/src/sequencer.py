@@ -23,7 +23,7 @@ class Sequencer:
         self.port = port
         self.server_addresses = server_addresses
         self.sequence_num = 0  # Contador para atribuir números de sequência às mensagens de commit
-        self.lock = threading.Lock() # Um lock para proteger o contador de sequência e garantir atomicidade
+        self.lock = threading.Lock() # Protege 'self.sequence_num' de acessos concorrentes por múltiplas threads, multiplos clientes tentam acessar
 
         print(f"Sequenciador inicializado em {self.host}:{self.port}")
 
@@ -31,13 +31,15 @@ class Sequencer:
         """
         Inicia o sequenciador, ligando o socket e escutando por conexões de clientes.
         """
+        # socket.AF_INET indica que usaremos endereços IPv4.
+        # socket.SOCK_STREAM indica que usaremos um socket de fluxo (TCP), que garante entrega e ordem.
         sequencer_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sequencer_socket.bind((self.host, self.port))
         sequencer_socket.listen(5) # Permite até 5 conexões de clientes pendentes
         print(f"Sequenciador escutando em {self.host}:{self.port}")
 
+         # Loop infinito para aceitar novas conexões de clientes
         while True:
-            # Aceita uma nova conexão de um cliente
             conn, addr = sequencer_socket.accept()
             # Cria uma nova thread para lidar com a requisição de commit deste cliente,
             # permitindo que múltiplos clientes se conectem concorrentemente.
@@ -61,8 +63,11 @@ class Sequencer:
         
         # Verifica se a mensagem é uma requisição de commit do cliente
         if mensagem_cliente.get('type') == 'commit_request':
+            # Usa o lock para garantir que a atualização de 'self.sequence_num' seja atômica.
+            # Isso impede que duas threads incrementem o contador ao mesmo tempo, garantindo
+            # que cada requisição de commit receba um número de sequência único e correto.
             with self.lock:
-                self.sequence_num += 1 # Atribui um número de sequência único e crescente
+                self.sequence_num += 1
                 numero_sequencia_atual = self.sequence_num
 
             # Prepara a mensagem para difusão, incluindo o número de sequência para ordem global
@@ -98,27 +103,24 @@ class Sequencer:
         # Itera sobre todos os endereços de servidores registrados para enviar a mensagem de commit
         for host_servidor, porta_servidor in self.server_addresses:
             # Abre uma nova conexão socket para cada servidor
+            # O 'with' statement garante que o socket será fechado automaticamente.
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as socket_servidor:
                 socket_servidor.connect((host_servidor, porta_servidor))
                 
                 # Envia a mensagem original de commit para o servidor.
                 # O servidor usará a ordem de chegada garantida pelo sequenciador.
                 socket_servidor.sendall(json.dumps(mensagem_sequenciada['original_message']).encode('utf-8'))
-                #print(f"Sequenciador: Retransmitiu requisição de commit (seq {mensagem_sequenciada['sequence_num']}) para o servidor {host_servidor}:{porta_servidor}")
 
                 # Espera pelo resultado do commit do servidor (commit ou abort)
                 resposta_servidor_data = socket_servidor.recv(4096).decode('utf-8')
                 if resposta_servidor_data:
                     resultado_mensagem = json.loads(resposta_servidor_data)
-                    #print(f"Sequenciador: Recebeu resultado do servidor {host_servidor}:{porta_servidor}: {resultado_mensagem['result']}")
-                    
                     # Retransmite o resultado (commit/abort) de volta para o cliente original
                     cliente_original_conn.sendall(json.dumps(resultado_mensagem).encode('utf-8'))
                     resultado_recebido = True
-                    break # Para esta simulação simples, o primeiro resultado de um servidor é suficiente para informar o cliente
+                    break 
 
         if not resultado_recebido:
-            # Se nenhum servidor respondeu (em um cenário onde nodos não falham, isso indicaria um erro de lógica),
             # o sequenciador informa o cliente original que a transação foi abortada.
             resultado_falso = {'type': 'outcome', 't_id': mensagem_sequenciada['original_message']['t_id'], 'result': 'abort'}
             cliente_original_conn.sendall(json.dumps(resultado_falso).encode('utf-8'))
