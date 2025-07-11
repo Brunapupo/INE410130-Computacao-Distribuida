@@ -24,12 +24,10 @@ class Server:
         self.host = host
         self.port = port
         self.db = {} 
-        # Um lock para proteger o acesso concorrente ao banco de dados
         # Essencial para evitar condições de corrida em um servidor multi-threaded.
         self.db_lock = threading.Lock() 
 
         # Inicializa alguns dados de exemplo no banco de dados com versão 0,
-        # conforme linha 2 do Algoritmo 4 (para x e y).
         with self.db_lock:
             self.db['x'] = {'value': 'valor_inicial_x', 'version': 0}
             self.db['y'] = {'value': 'valor_inicial_y', 'version': 0}
@@ -39,16 +37,15 @@ class Server:
         Inicia o servidor, ligando o socket e escutando por conexões.
         """
         server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        server_socket.bind((self.host, self.port))
+        server_socket.bind((self.host, self.port))#liga ao endereço da porta
         server_socket.listen(5) # Permite até 5 conexões pendentes
         print(f"Servidor {self.server_id} escutando em {self.host}:{self.port}")
 
         while True:
-            # Aceita uma nova conexão (pode ser de um cliente para leitura ou do sequenciador para commit)
+            # mantém o servidor continuamente aceitando novas conexões (server_socket.accept()).
             conn, addr = server_socket.accept()
-            #print(f"Servidor {self.server_id}: Conexão aceita de {addr}")
             # Cria uma nova thread para lidar com esta conexão, permitindo concorrência
-            client_handler_thread = threading.Thread(target=self.handle_message, args=(conn, addr))
+            client_handler_thread = threading.Thread(target=self.handle_message, args=(conn, addr))#escuta
             client_handler_thread.start()
 
     def handle_message(self, conn, addr):

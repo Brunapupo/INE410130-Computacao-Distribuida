@@ -2,7 +2,6 @@
 import socket
 import json
 import random
-
 class Client:
     """
     Representa um cliente que executa transações no sistema distribuído.
@@ -66,8 +65,7 @@ class Client:
             response = json.loads(response_data)
             # Adiciona o item, valor e versão ao Read Set (rs)
             self.rs.append({'item': item, 'value': response['value'], 'version': response['version']})
-            #print(f"Cliente {self.client_id} (Transação {self.transaction_id}): Leu '{item}' (valor: {response['value']}, versão: {response['version']}) do servidor {current_server}.")
-
+           
 
     def write(self, item, value):
         """
@@ -105,7 +103,6 @@ class Client:
                     'ws': self.ws
                 }
                 sock.sendall(json.dumps(commit_request).encode('utf-8')) # Envia requisição via difusão atômica (simulada pelo sequenciador)
-                #print(f"Cliente {self.client_id} (Transação {self.transaction_id}): Enviou solicitação de commit ao sequenciador.") # Comentado para menos prints
                 # Espera pelo resultado (commit/abort) do sequenciador/servidor
                 outcome_data = sock.recv(4096).decode('utf-8')
                 outcome = json.loads(outcome_data)

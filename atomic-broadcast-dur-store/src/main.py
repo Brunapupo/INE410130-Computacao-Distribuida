@@ -220,6 +220,7 @@ def teste_leitura_obsoleta():
     # T1 altera x; T2 lê versão antiga e tenta confirmar depois, resultando em aborto
     t1_ops = [
         ("write", "x", 99), 
+        ("sleep", 0.2)
         ("commit",)
     ]
 

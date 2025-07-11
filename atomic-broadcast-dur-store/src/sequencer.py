@@ -2,7 +2,6 @@
 import socket
 import threading
 import json
-import time
 
 class Sequencer:
     """
@@ -63,11 +62,9 @@ class Sequencer:
         
         # Verifica se a mensagem é uma requisição de commit do cliente
         if mensagem_cliente.get('type') == 'commit_request':
-            # Usa o lock para garantir que a atualização de 'self.sequence_num' seja atômica.
-            # Isso impede que duas threads incrementem o contador ao mesmo tempo, garantindo
-            # que cada requisição de commit receba um número de sequência único e correto.
-            with self.lock:
-                self.sequence_num += 1
+            # O encapsulamento está no lock, ele encapsula o acesso seguro permitindo apenas 1 thread de cada vez.
+            with self.lock: # O 'lock' encapsula o acesso seguro ao 'self.sequence_num'.
+                self.sequence_num += 1 # Apenas uma thread pode executar esta linha por vez.
                 numero_sequencia_atual = self.sequence_num
 
             # Prepara a mensagem para difusão, incluindo o número de sequência para ordem global
